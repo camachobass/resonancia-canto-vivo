@@ -4,6 +4,8 @@ A bilingual musical adventure for OpenAI Build Week. Players restore living worl
 
 Una aventura musical bilingüe para OpenAI Build Week. Los jugadores restauran mundos vivos al escuchar, componer y convertir ideas musicales en cambios visibles.
 
+**Play the Day 1 prototype:** [resonancia-canto-vivo.vercel.app](https://resonancia-canto-vivo.vercel.app)
+
 ## Day 1 playable loop
 
 1. Hear C–E–G in Grandma Luma's house and find the three sounding objects in order.
