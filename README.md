@@ -24,6 +24,8 @@ The full house → atlas → composition → Air portal loop was browser-tested 
 
 Requires Node.js 20.9 or newer.
 
+The repository pins Node 22 in `.nvmrc`, the recommended local version for the team.
+
 ```bash
 npm install
 npm run dev
