@@ -68,8 +68,8 @@ The server will use the official OpenAI JavaScript SDK, the Responses API, and S
 
 ## Model strategy
 
-- Default model: `gpt-5.6` through a server-only environment variable.
-- Reasoning: low, because the task is constrained and latency matters.
+- Default model: `gpt-5.6-luna`, the efficient high-volume GPT-5.6 variant, through a server-only environment variable.
+- Reasoning: none, because the task is tightly constrained and latency and cost matter.
 - Short structured output to control latency and cost.
 - Model name configurable through `OPENAI_MENTOR_MODEL` without changing code.
 - No free-form player text on Day 2; GPT receives only constrained musical parameters and language.

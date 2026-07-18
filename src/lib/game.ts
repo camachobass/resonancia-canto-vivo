@@ -12,19 +12,12 @@ export interface CompositionConfig {
   instruments: Instrument[];
 }
 
-export interface MentorFeedback {
-  interpretation: string;
-  concept: string;
-  variationChallenge: string;
-  worldEffect: string;
-  source: "mock";
-}
-
 export interface GameProgress {
   language: Language;
   phase: GamePhase;
   houseSolved: boolean;
   composition?: CompositionConfig;
+  mentor?: MentorFeedback;
 }
 
 export const DEFAULT_COMPOSITION: CompositionConfig = {
@@ -34,6 +27,7 @@ export const DEFAULT_COMPOSITION: CompositionConfig = {
 };
 
 export const STORAGE_KEY = "resonancia:v1";
+export const SESSION_STORAGE_KEY = "resonancia:anonymous-player:v1";
 export const HOUSE_SEQUENCE = ["clock", "sofa", "trunk"] as const;
 
 export const compositionSchema = z.object({
@@ -48,8 +42,71 @@ export const compositionSchema = z.object({
 export const mentorRequestSchema = z.object({
   sceneId: z.literal("dog-walk"),
   language: z.enum(["en", "es"]),
+  playerSessionId: z.string().uuid(),
   composition: compositionSchema,
 });
+
+export const suggestedVariationSchema = compositionSchema.extend({
+  reason: z.string().min(1).max(160),
+});
+
+export const mentorModelOutputSchema = z.object({
+  interpretation: z.string().min(1).max(180),
+  concept: z.string().min(1).max(180),
+  variationChallenge: z.string().min(1).max(180),
+  worldEffect: z.string().min(1).max(140),
+  suggestedVariation: suggestedVariationSchema,
+});
+
+export const mentorFeedbackSchema = mentorModelOutputSchema.extend({
+  source: z.enum(["openai", "mock"]),
+  model: z.string().min(1).max(80).optional(),
+});
+
+export type MentorRequest = z.infer<typeof mentorRequestSchema>;
+export type MentorModelOutput = z.infer<typeof mentorModelOutputSchema>;
+export type MentorFeedback = z.infer<typeof mentorFeedbackSchema>;
+
+export function sameComposition(a: CompositionConfig, b: CompositionConfig) {
+  return (
+    a.tempo === b.tempo &&
+    a.contour === b.contour &&
+    a.instruments.length === b.instruments.length &&
+    a.instruments.every((instrument, index) => instrument === b.instruments[index])
+  );
+}
+
+export function ensurePlayableVariation(
+  original: CompositionConfig,
+  proposed: z.infer<typeof suggestedVariationSchema>,
+) {
+  if (!sameComposition(original, proposed)) return proposed;
+
+  const nextContour: Record<Contour, Contour> = {
+    rising: "wave",
+    wave: "falling",
+    falling: "rising",
+  };
+
+  return { ...proposed, contour: nextContour[original.contour] };
+}
+
+function fallbackVariation(language: Language, composition: CompositionConfig) {
+  const nextContour: Record<Contour, Contour> = {
+    rising: "wave",
+    wave: "falling",
+    falling: "rising",
+  };
+
+  return {
+    ...composition,
+    contour: nextContour[composition.contour],
+    reason:
+      language === "es"
+        ? "Cambiar solo la dirección melódica permite oír cómo una decisión transforma el carácter."
+        : "Changing only the melodic direction reveals how one choice transforms the character.",
+  };
+}
 
 export function melodyFor(config: CompositionConfig): string[] {
   const contours: Record<Contour, string[]> = {
@@ -78,8 +135,9 @@ export function mockMentorFeedback(
       concept: `Usaste un contorno ${composition.contour === "rising" ? "ascendente" : composition.contour === "falling" ? "descendente" : "ondulante"} y ${composition.instruments.length} colores instrumentales.`,
       variationChallenge: manyColors
         ? "Prueba quitar un instrumento: ¿sigue contando la misma historia?"
-        : "Añade una nueva voz y haz que responda a la melodía.",
+        : "Compara tu contorno con la nueva dirección que preparé para ti.",
       worldEffect: "El sendero florece y el portal de Aire recupera su canto.",
+      suggestedVariation: fallbackVariation(language, composition),
       source: "mock",
     };
   }
@@ -93,8 +151,9 @@ export function mockMentorFeedback(
     concept: `You used a ${composition.contour} contour and ${composition.instruments.length} instrumental colors.`,
     variationChallenge: manyColors
       ? "Try removing one instrument. Does it still tell the same story?"
-      : "Add a new voice and let it answer the melody.",
+      : "Compare your contour with the new direction I prepared for you.",
     worldEffect: "The path blooms and the Air portal recovers its song.",
+    suggestedVariation: fallbackVariation(language, composition),
     source: "mock",
   };
 }
@@ -139,12 +198,17 @@ export const copy = {
     stop: "Stop",
     commit: "Offer song to the portal",
     mentor: "Echo, your musical guide",
-    mockNote: "Prototype guide · curated feedback, no AI call yet",
+    listening: "Echo is listening to your musical choices…",
+    listeningHint: "Turning tempo, shape and timbre into a playable idea.",
+    openAISource: "GPT-5.6 Luna · live musical mentor",
+    fallbackSource: "Curated fallback · the journey stays playable",
+    mySong: "My song",
+    echoVariation: "Echo’s variation",
+    variationReason: "Why this change?",
     launchTitle: "The Air World Awakens",
     launchStory: "Your musical idea became something real. The journey has begun.",
-    playAgain: "Play my song",
     returnAtlas: "Return to atlas",
-    dayOne: "Build Week · Day 1 prototype",
+    dayOne: "Build Week · Day 2 AI mentor",
     soundOn: "Sound on",
     soundOff: "Sound off",
   },
@@ -187,12 +251,17 @@ export const copy = {
     stop: "Detener",
     commit: "Ofrecer canción al portal",
     mentor: "Eco, tu guía musical",
-    mockNote: "Guía de prototipo · respuestas curadas, aún sin llamada a IA",
+    listening: "Eco está escuchando tus decisiones musicales…",
+    listeningHint: "Convirtiendo tempo, forma y timbre en una idea que podrás tocar.",
+    openAISource: "GPT-5.6 Luna · mentor musical en vivo",
+    fallbackSource: "Alternativa curada · el viaje siempre puede continuar",
+    mySong: "Mi canción",
+    echoVariation: "Variación de Eco",
+    variationReason: "¿Por qué este cambio?",
     launchTitle: "El mundo de Aire despierta",
     launchStory: "Tu idea musical se convirtió en algo real. El viaje ha comenzado.",
-    playAgain: "Tocar mi canción",
     returnAtlas: "Volver al atlas",
-    dayOne: "Build Week · Prototipo Día 1",
+    dayOne: "Build Week · Día 2 con mentor IA",
     soundOn: "Sonido activo",
     soundOff: "Sonido apagado",
   },

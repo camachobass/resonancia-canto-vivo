@@ -4,23 +4,24 @@ A bilingual musical adventure for OpenAI Build Week. Players restore living worl
 
 Una aventura musical bilingüe para OpenAI Build Week. Los jugadores restauran mundos vivos al escuchar, componer y convertir ideas musicales en cambios visibles.
 
-**Play the Day 1 prototype:** [resonancia-canto-vivo.vercel.app](https://resonancia-canto-vivo.vercel.app)
+**Play the Day 2 prototype:** [resonancia-canto-vivo.vercel.app](https://resonancia-canto-vivo.vercel.app)
 
-## Day 1 playable loop
+## Playable loop
 
 1. Hear C–E–G in Grandma Luma's house and find the three sounding objects in order.
 2. Open the ecosophic atlas of Air, Water, Fire, and Earth.
 3. Compose a four-bar dog-walk by choosing tempo, melodic contour, and instruments.
 4. Preview the real synthesized music and offer it to the Air portal.
-5. Receive curated educational feedback and see the world awaken.
+5. Ask Echo, the GPT-5.6 musical mentor, for concise educational feedback.
+6. Hear and compare **My song** with **Echo's variation** in the same scene.
 
-Progress and language are stored locally. English is the default; Spanish is available from every scene.
+Progress, the anonymous session UUID, and the latest mentor response are stored only in the browser. Saving the response prevents a reload from creating another paid model call. English is the default; Spanish is available from every scene.
 
 ## Verified prototype
 
 ![Resonance welcome screen](artifacts/welcome-desktop.png)
 
-The full house → atlas → composition → Air portal loop was browser-tested at desktop size and at 390×844. The mobile Spanish view is included in [`artifacts/welcome-mobile-es.png`](artifacts/welcome-mobile-es.png), and the completed portal in [`artifacts/launch-desktop.png`](artifacts/launch-desktop.png).
+The original house → atlas → composition → Air portal loop was browser-tested at desktop size and at 390×844. Day 2 adds the live mentor and audible variation comparison to that same vertical slice.
 
 ## Run locally
 
@@ -35,6 +36,15 @@ npm run dev
 
 Open `http://localhost:3000`. Audio begins only after a player gesture, as required by browsers.
 
+Copy `.env.example` to `.env.local`, then add a server-only OpenAI project key:
+
+```bash
+OPENAI_API_KEY=
+OPENAI_MENTOR_MODEL=gpt-5.6-luna
+```
+
+Never prefix the key with `NEXT_PUBLIC_`. Without a key, the game automatically uses its disclosed curated fallback.
+
 ## Quality checks
 
 ```bash
@@ -45,21 +55,26 @@ npm run check
 
 - Next.js App Router + React + TypeScript
 - Tone.js, loaded lazily in the browser after interaction
-- Zod validation for the mentor endpoint
-- Vitest for musical mapping, schema, and bilingual copy
+- OpenAI Responses API with the official JavaScript SDK
+- Zod Structured Outputs for both generated text and the playable variation
+- `gpt-5.6-luna` with `reasoning: none`, a 420-output-token ceiling, no retries, and `store: false`
+- 8-second server timeout, 4 KB payload limit, and best-effort per-session rate limiting
+- Vitest for musical mapping, schemas, fallbacks, timeout behavior, route boundaries, and bilingual pedagogy
 - One client-side scene state machine so the audio context survives transitions
 - `localStorage` key `resonancia:v1` for prototype progress
 
-### Prototype API
+### Mentor API
 
 - `GET /api/health`
 - `POST /api/mentor/feedback`
 
-The Day 1 mentor is intentionally a **mock with curated responses** and its response includes `source: "mock"`. It does not call GPT and the UI never represents it as live AI. A later iteration can replace the implementation behind the same validated contract once an API key and safety/evaluation plan are ready.
+`POST /api/mentor/feedback` accepts only constrained musical settings plus a random local UUID—never a name, email, recording, microphone input, or free-form child text. A live answer includes `source: "openai"`; any missing key, refusal, malformed output, timeout, network error, or rate limit returns the same validated contract with `source: "mock"`. The interface labels both sources honestly.
+
+The Day 2 evaluation set covers English and Spanish, all melodic contours, both tempo extremes, and one- to three-instrument arrangements. See [`docs/DAY_2_EVALS.md`](docs/DAY_2_EVALS.md).
 
 ## Built with Codex
 
-The product concept, scope, architecture, implementation, copy, tests, and documentation were developed collaboratively with OpenAI Codex during Build Week. The human team directed the musical pedagogy, worldbuilding, ecosophic purpose, and product decisions.
+The product concept, scope, architecture, implementation, copy, tests, evaluations, and documentation were developed collaboratively with OpenAI Codex during Build Week. The human team directed the musical pedagogy, worldbuilding, ecosophic purpose, and product decisions.
 
 ## Ecosophic direction
 

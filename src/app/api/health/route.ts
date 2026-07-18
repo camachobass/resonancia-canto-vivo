@@ -1,3 +1,8 @@
 export function GET() {
-  return Response.json({ status: "ok", version: "day-1", mentor: "mock" });
+  return Response.json({
+    status: "ok",
+    version: "day-2",
+    mentor: process.env.OPENAI_API_KEY ? "openai-ready" : "curated-fallback",
+    model: process.env.OPENAI_MENTOR_MODEL || "gpt-5.6-luna",
+  });
 }
