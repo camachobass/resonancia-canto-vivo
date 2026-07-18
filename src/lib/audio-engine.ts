@@ -1,9 +1,10 @@
-import type { CompositionConfig } from "./game";
-import { melodyFor } from "./game";
+import type { CompositionConfig, WaterChordId } from "./game";
+import { melodyFor, WATER_CHORDS } from "./game";
 
 type ToneModule = typeof import("tone");
 let tonePromise: Promise<ToneModule> | null = null;
 let muted = false;
+let stopWaterSound: null | (() => void) = null;
 
 async function getTone() {
   tonePromise ??= import("tone");
@@ -22,10 +23,56 @@ export async function setMuted(value: boolean) {
 }
 
 export async function stopAll() {
+  stopWaterSound?.();
+  stopWaterSound = null;
   if (!tonePromise) return;
   const Tone = await tonePromise;
   Tone.getTransport().stop();
   Tone.getTransport().cancel();
+}
+
+function holdWaterSynth(
+  synth: { dispose: () => void; releaseAll: () => void },
+  duration: number,
+) {
+  const timer = window.setTimeout(() => {
+    synth.releaseAll();
+    synth.dispose();
+    stopWaterSound = null;
+  }, duration);
+
+  stopWaterSound = () => {
+    window.clearTimeout(timer);
+    synth.releaseAll();
+    synth.dispose();
+  };
+}
+
+export async function playWaterChord(chord: WaterChordId) {
+  const Tone = await getTone();
+  stopWaterSound?.();
+  const synth = new Tone.PolySynth(Tone.Synth, {
+    oscillator: { type: "sine" },
+    envelope: { attack: 0.08, decay: 0.3, sustain: 0.45, release: 1.1 },
+    volume: -6,
+  }).toDestination();
+  synth.triggerAttackRelease([...WATER_CHORDS[chord].notes], "2n");
+  holdWaterSynth(synth, 2200);
+}
+
+export async function playWaterProgression(chords: readonly WaterChordId[]) {
+  const Tone = await getTone();
+  stopWaterSound?.();
+  const synth = new Tone.PolySynth(Tone.Synth, {
+    oscillator: { type: "triangle" },
+    envelope: { attack: 0.06, decay: 0.25, sustain: 0.5, release: 0.9 },
+    volume: -7,
+  }).toDestination();
+  const now = Tone.now();
+  chords.forEach((chord, index) => {
+    synth.triggerAttackRelease([...WATER_CHORDS[chord].notes], "2n", now + index * 0.9);
+  });
+  holdWaterSynth(synth, chords.length * 900 + 1600);
 }
 
 export async function playNote(note: string, duration = "8n") {

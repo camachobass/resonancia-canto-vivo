@@ -1,12 +1,15 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { WaterWorld } from "@/components/water-world";
 import { playHousePattern, playNote, previewComposition, setMuted, stopAll } from "@/lib/audio-engine";
 import {
-  compositionSchema, copy, DEFAULT_COMPOSITION, HOUSE_SEQUENCE, mentorFeedbackSchema,
-  mockMentorFeedback, sameComposition, SESSION_STORAGE_KEY, STORAGE_KEY,
+  compositionSchema, copy, createWaterProgress, dailyWaterChallengeId, DEFAULT_COMPOSITION,
+  DEFAULT_WATER_PROGRESS, gamePhaseSchema, HOUSE_SEQUENCE, mentorFeedbackSchema,
+  mockMentorFeedback, parseWaterChallengeId, sameComposition, SESSION_STORAGE_KEY, STORAGE_KEY,
+  waterProgressSchema,
   type CompositionConfig, type GamePhase, type GameProgress, type Instrument,
-  type Language, type MentorFeedback,
+  type Language, type MentorFeedback, type WaterProgress,
 } from "@/lib/game";
 
 const notes = { clock: "C4", sofa: "E4", trunk: "G4" } as const;
@@ -16,10 +19,13 @@ export function GameShell() {
   const [language, setLanguage] = useState<Language>("en");
   const [phase, setPhase] = useState<GamePhase>("welcome");
   const [houseSolved, setHouseSolved] = useState(false);
+  const [airRestored, setAirRestored] = useState(false);
   const [houseInput, setHouseInput] = useState<string[]>([]);
   const [houseStatus, setHouseStatus] = useState<"idle" | "wrong" | "solved">("idle");
   const [composition, setComposition] = useState(DEFAULT_COMPOSITION);
   const [mentor, setMentor] = useState<MentorFeedback | null>(null);
+  const [waterProgress, setWaterProgress] = useState<WaterProgress>(DEFAULT_WATER_PROGRESS);
+  const [invitedToWater, setInvitedToWater] = useState(false);
   const [mentorLoading, setMentorLoading] = useState(false);
   const [muted, setIsMuted] = useState(false);
   const [playingVersion, setPlayingVersion] = useState<"original" | "variation" | null>(null);
@@ -35,16 +41,32 @@ export function GameShell() {
       try {
         const saved = window.localStorage.getItem(STORAGE_KEY);
         if (saved) {
-          const progress = JSON.parse(saved) as GameProgress;
+          const progress = JSON.parse(saved) as Partial<GameProgress>;
           setLanguage(progress.language ?? "en");
-          setPhase(progress.phase ?? "welcome");
+          const savedPhase = gamePhaseSchema.safeParse(progress.phase);
+          setPhase(savedPhase.success ? savedPhase.data : "welcome");
           setHouseSolved(Boolean(progress.houseSolved));
+          setAirRestored(Boolean(progress.airRestored || progress.phase === "launch" || progress.mentor));
           const savedComposition = compositionSchema.safeParse(progress.composition);
           const savedMentor = mentorFeedbackSchema.safeParse(progress.mentor);
+          const savedWater = waterProgressSchema.safeParse(progress.water);
           if (savedComposition.success) setComposition(savedComposition.data);
           if (savedMentor.success) setMentor(savedMentor.data);
+          if (savedWater.success) setWaterProgress(savedWater.data);
+          else setWaterProgress(createWaterProgress(dailyWaterChallengeId()));
         }
       } catch { window.localStorage.removeItem(STORAGE_KEY); }
+
+      const params = new URLSearchParams(window.location.search);
+      const sharedChallenge = parseWaterChallengeId(params.get("challenge"));
+      const sharedLanguage = params.get("lang");
+      if (sharedLanguage === "en" || sharedLanguage === "es") setLanguage(sharedLanguage);
+      if (sharedChallenge) {
+        setWaterProgress((current) => createWaterProgress(sharedChallenge, current));
+        setAirRestored(true);
+        setInvitedToWater(true);
+        setPhase("water");
+      }
       setHydrated(true);
     });
     return () => { active = false; };
@@ -52,9 +74,20 @@ export function GameShell() {
 
   useEffect(() => {
     if (!hydrated) return;
-    const progress: GameProgress = { language, phase, houseSolved, composition, mentor: mentor ?? undefined };
+    const progress: GameProgress = {
+      language,
+      phase,
+      houseSolved,
+      airRestored,
+      composition,
+      mentor: mentor ?? undefined,
+      water: waterProgress,
+    };
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
-  }, [composition, houseSolved, hydrated, language, mentor, phase]);
+  }, [airRestored, composition, houseSolved, hydrated, language, mentor, phase, waterProgress]);
+  useEffect(() => {
+    document.documentElement.lang = language;
+  }, [language]);
   useEffect(() => () => {
     stopPreview.current?.();
     if (houseStatusTimer.current) window.clearTimeout(houseStatusTimer.current);
@@ -120,6 +153,7 @@ export function GameShell() {
 
   async function awakenWorld() {
     stopMusic();
+    setAirRestored(true);
     setPhase("launch");
     if (mentor) return;
     setMentorLoading(true);
@@ -148,8 +182,26 @@ export function GameShell() {
 
   function resetJourney() {
     stopMusic(); window.localStorage.removeItem(STORAGE_KEY); setPhase("welcome");
-    setHouseSolved(false); setHouseInput([]); setHouseStatus("idle");
-    setComposition(DEFAULT_COMPOSITION); setMentor(null);
+    window.history.replaceState({}, "", window.location.pathname);
+    setHouseSolved(false); setAirRestored(false); setHouseInput([]); setHouseStatus("idle");
+    setComposition(DEFAULT_COMPOSITION); setMentor(null); setInvitedToWater(false);
+    setWaterProgress(createWaterProgress(dailyWaterChallengeId()));
+  }
+
+  function enterWaterWorld() {
+    const dailyChallenge = dailyWaterChallengeId();
+    if (waterProgress.completedRuns === 0 && waterProgress.stage === "intro" && !invitedToWater) {
+      setWaterProgress(createWaterProgress(dailyChallenge, waterProgress));
+    }
+    go("water");
+  }
+
+  function exitWaterWorld() {
+    if (invitedToWater) {
+      window.history.replaceState({}, "", window.location.pathname);
+      setInvitedToWater(false);
+    }
+    go("atlas");
   }
 
   const activeMentor = mentor ?? (
@@ -192,8 +244,10 @@ export function GameShell() {
       {phase === "atlas" && <section className="scene atlas-scene">
         <div className="scene-heading centered"><span className="eyebrow">THE ECOSOPHIC JOURNEY</span><h2>{t.atlasTitle}</h2><p>{t.atlasStory}</p></div>
         <div className="portal-grid">
-          <button className="portal portal-air" onClick={() => go("composition")}><span className="portal-index">01</span><span className="portal-symbol">⌁</span><strong>{t.air}</strong><small>{t.activePortal} →</small></button>
-          <div className="portal portal-water disabled"><span className="portal-index">02</span><span className="portal-symbol">≈</span><strong>{t.water}</strong><small>{t.soon}</small></div>
+          <button className={`portal portal-air ${airRestored ? "restored" : ""}`} onClick={() => go("composition")}><span className="portal-index">01</span><span className="portal-symbol">⌁</span><strong>{t.air}</strong><small>{airRestored ? `✓ ${t.restored}` : `${t.activePortal} →`}</small></button>
+          {airRestored
+            ? <button className={`portal portal-water ${waterProgress.completedRuns ? "restored" : ""}`} onClick={enterWaterWorld}><span className="portal-index">02</span><span className="portal-symbol">≈</span><strong>{t.water}</strong><small>{waterProgress.completedRuns ? `✓ ${t.restored}` : `${t.waterAvailable} →`}</small></button>
+            : <div className="portal portal-water disabled"><span className="portal-index">02</span><span className="portal-symbol">≈</span><strong>{t.water}</strong><small>{t.soon}</small></div>}
           <div className="portal portal-fire disabled"><span className="portal-index">03</span><span className="portal-symbol">△</span><strong>{t.fire}</strong><small>{t.soon}</small></div>
           <div className="portal portal-earth disabled"><span className="portal-index">04</span><span className="portal-symbol">◇</span><strong>{t.earth}</strong><small>{t.soon}</small></div>
         </div>
@@ -218,9 +272,11 @@ export function GameShell() {
             <button className={playingVersion === "original" ? "version-button selected" : "version-button"} aria-pressed={playingVersion === "original"} onClick={() => void togglePreview("original", composition)}><span>01</span><strong>{playingVersion === "original" ? `■ ${t.stop}` : `▶ ${t.mySong}`}</strong><small>{composition.tempo} BPM · {t[composition.contour]}</small></button>
             <button className={playingVersion === "variation" ? "version-button selected" : "version-button"} aria-pressed={playingVersion === "variation"} onClick={() => void togglePreview("variation", activeMentor.suggestedVariation)}><span>02</span><strong>{playingVersion === "variation" ? `■ ${t.stop}` : `▶ ${t.echoVariation}`}</strong><small>{activeMentor.suggestedVariation.tempo} BPM · {t[activeMentor.suggestedVariation.contour]}</small></button>
           </div>}
-          <div className="hero-actions"><button className="text-button" onClick={() => go("atlas")}>{t.returnAtlas}</button></div>
+          <div className="hero-actions"><button className="text-button" onClick={() => { setAirRestored(true); go("atlas"); }}>{t.returnAtlas}</button></div>
         </div>
       </section>}
+
+      {phase === "water" && <WaterWorld language={language} progress={waterProgress} invited={invitedToWater} onProgress={setWaterProgress} onExit={exitWaterWorld} />}
       <div className="grain" aria-hidden="true"/>
     </main>
   );
