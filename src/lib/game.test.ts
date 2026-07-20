@@ -7,12 +7,15 @@ import {
   copy,
   createWaterProgress,
   dailyWaterChallengeId,
+  guideCopy,
   melodyFor,
   mentorFeedbackSchema,
   mentorRequestSchema,
   mockMentorFeedback,
   parseWaterChallengeId,
   progressionMatches,
+  phaseObjectives,
+  restoredWorldCount,
   sameComposition,
   scoreWaterMission,
   waterChallengeUrl,
@@ -70,9 +73,22 @@ describe("bilingual prototype", () => {
       Object.keys(waterCopy.es.challengeNames).sort(),
     );
   });
+
+  it("keeps the final guide and phase objectives bilingual", () => {
+    expect(Object.keys(guideCopy.en).sort()).toEqual(Object.keys(guideCopy.es).sort());
+    expect(Object.keys(phaseObjectives.en).sort()).toEqual(Object.keys(phaseObjectives.es).sort());
+    expect(Object.values(phaseObjectives.en).every(Boolean)).toBe(true);
+    expect(Object.values(phaseObjectives.es).every(Boolean)).toBe(true);
+  });
 });
 
 describe("Water World challenge", () => {
+  it("counts only restored, playable worlds", () => {
+    expect(restoredWorldCount(false, 0)).toBe(0);
+    expect(restoredWorldCount(true, 0)).toBe(1);
+    expect(restoredWorldCount(true, 2)).toBe(2);
+  });
+
   it("maps every diatonic tentacle to a playable major or minor triad", () => {
     expect(WATER_CHORD_IDS).toHaveLength(6);
     expect(WATER_CHORD_IDS.map(chordQuality)).toEqual([

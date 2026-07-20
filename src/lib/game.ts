@@ -24,6 +24,7 @@ export interface GameProgress {
   phase: GamePhase;
   houseSolved: boolean;
   airRestored: boolean;
+  muted: boolean;
   composition?: CompositionConfig;
   mentor?: MentorFeedback;
   water: WaterProgress;
@@ -193,6 +194,10 @@ export function scoreWaterMission(earCorrect: number, failedProgressionAttempts:
   return Math.min(3, 1 + (earCorrect >= 2 ? 1 : 0) + (failedProgressionAttempts === 0 ? 1 : 0));
 }
 
+export function restoredWorldCount(airRestored: boolean, waterCompletedRuns: number) {
+  return Number(airRestored) + Number(waterCompletedRuns > 0);
+}
+
 export function waterChallengeUrl(
   currentUrl: string,
   challengeId: WaterChallengeId,
@@ -349,9 +354,15 @@ export const copy = {
     launchTitle: "The Air World Awakens",
     launchStory: "Your musical idea became something real. The journey has begun.",
     returnAtlas: "Return to atlas",
-    dayOne: "Build Week · Day 3 living worlds",
-    soundOn: "Sound on",
-    soundOff: "Sound off",
+    dayOne: "Build Week · Final playable prototype",
+    homeLabel: "Resonance home",
+    languageLabel: "Language",
+    soundOn: "Turn sound on",
+    soundOff: "Mute sound",
+    help: "Open field guide",
+    howToPlay: "How to play · 3 min journey",
+    worldsRestored: "worlds restored",
+    loading: "Restoring your journey",
   },
   es: {
     tagline: "Una aventura musical donde escuchar transforma el mundo.",
@@ -404,9 +415,85 @@ export const copy = {
     launchTitle: "El mundo de Aire despierta",
     launchStory: "Tu idea musical se convirtió en algo real. El viaje ha comenzado.",
     returnAtlas: "Volver al atlas",
-    dayOne: "Build Week · Día 3 mundos vivos",
-    soundOn: "Sonido activo",
-    soundOff: "Sonido apagado",
+    dayOne: "Build Week · Prototipo jugable final",
+    homeLabel: "Inicio de Resonance",
+    languageLabel: "Idioma",
+    soundOn: "Activar sonido",
+    soundOff: "Silenciar sonido",
+    help: "Abrir guía de campo",
+    howToPlay: "Cómo jugar · viaje de 3 min",
+    worldsRestored: "mundos restaurados",
+    loading: "Restaurando tu viaje",
+  },
+} as const;
+
+export const phaseObjectives: Record<Language, Record<GamePhase, string>> = {
+  en: {
+    welcome: "Begin the living song",
+    house: "Awaken three notes from low to high",
+    atlas: "Choose a living world",
+    composition: "Shape and offer a four-bar song",
+    launch: "Compare your song with Echo’s variation",
+    water: "Restore the reef through listening and harmony",
+  },
+  es: {
+    welcome: "Comienza el canto vivo",
+    house: "Despierta tres notas de grave a agudo",
+    atlas: "Elige un mundo vivo",
+    composition: "Crea y ofrece una canción de cuatro compases",
+    launch: "Compara tu canción con la variación de Eco",
+    water: "Restaura el arrecife con escucha y armonía",
+  },
+};
+
+export const guideCopy = {
+  en: {
+    label: "Field guide · Build Week demo",
+    title: "Your three-minute musical journey",
+    intro:
+      "Listen, create and compare. Every musical decision restores part of a living world.",
+    current: "Current objective",
+    route: "The playable route",
+    listen: "Listen",
+    listenDetail: "Find C–E–G inside Grandma Luma’s house.",
+    create: "Create",
+    createDetail: "Shape tempo, melody and timbre in the Air world.",
+    compare: "Compare",
+    compareDetail: "Hear your song beside Echo’s GPT-5.6 variation.",
+    restore: "Restore",
+    restoreDetail: "Recognize chord color and rebuild harmony with Octavia.",
+    safeTitle: "Safe by design",
+    safeDetail:
+      "No account, name, microphone or free-form child text. AI receives only constrained musical choices.",
+    headphones: "Headphones recommended · mouse, touch and keyboard supported",
+    fullJourney: "Start full journey",
+    quickDemo: "Try the 90-second Water demo",
+    quickDetail: "Skips directly to a deterministic challenge and makes no AI request.",
+    close: "Close field guide",
+  },
+  es: {
+    label: "Guía de campo · Demo Build Week",
+    title: "Tu viaje musical de tres minutos",
+    intro:
+      "Escucha, crea y compara. Cada decisión musical restaura una parte de un mundo vivo.",
+    current: "Objetivo actual",
+    route: "El recorrido jugable",
+    listen: "Escucha",
+    listenDetail: "Encuentra Do–Mi–Sol dentro de la casa de la abuela Luma.",
+    create: "Crea",
+    createDetail: "Transforma tempo, melodía y timbre en el mundo de Aire.",
+    compare: "Compara",
+    compareDetail: "Escucha tu canción junto a la variación GPT-5.6 de Eco.",
+    restore: "Restaura",
+    restoreDetail: "Reconoce el color de los acordes y reconstruye la armonía con Octavia.",
+    safeTitle: "Seguro desde el diseño",
+    safeDetail:
+      "Sin cuenta, nombre, micrófono ni texto libre infantil. La IA recibe únicamente decisiones musicales limitadas.",
+    headphones: "Audífonos recomendados · funciona con mouse, pantalla táctil y teclado",
+    fullJourney: "Comenzar viaje completo",
+    quickDemo: "Probar demo de Agua de 90 segundos",
+    quickDetail: "Abre un reto determinista y no realiza ninguna solicitud de IA.",
+    close: "Cerrar guía de campo",
   },
 } as const;
 

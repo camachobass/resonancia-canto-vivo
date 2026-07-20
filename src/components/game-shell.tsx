@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { FieldGuide } from "@/components/field-guide";
 import { WaterWorld } from "@/components/water-world";
 import { playHousePattern, playNote, previewComposition, setMuted, stopAll } from "@/lib/audio-engine";
 import {
   compositionSchema, copy, createWaterProgress, dailyWaterChallengeId, DEFAULT_COMPOSITION,
   DEFAULT_WATER_PROGRESS, gamePhaseSchema, HOUSE_SEQUENCE, mentorFeedbackSchema,
-  mockMentorFeedback, parseWaterChallengeId, sameComposition, SESSION_STORAGE_KEY, STORAGE_KEY,
-  waterProgressSchema,
+  mockMentorFeedback, parseWaterChallengeId, phaseObjectives, restoredWorldCount,
+  sameComposition, SESSION_STORAGE_KEY, STORAGE_KEY, waterProgressSchema,
   type CompositionConfig, type GamePhase, type GameProgress, type Instrument,
   type Language, type MentorFeedback, type WaterProgress,
 } from "@/lib/game";
@@ -30,8 +31,11 @@ export function GameShell() {
   const [muted, setIsMuted] = useState(false);
   const [playingVersion, setPlayingVersion] = useState<"original" | "variation" | null>(null);
   const [hydrated, setHydrated] = useState(false);
+  const [guideOpen, setGuideOpen] = useState(false);
   const stopPreview = useRef<null | (() => void)>(null);
   const houseStatusTimer = useRef<number | null>(null);
+  const sceneHost = useRef<HTMLDivElement>(null);
+  const helpButton = useRef<HTMLButtonElement>(null);
   const t = copy[language];
 
   useEffect(() => {
@@ -47,6 +51,9 @@ export function GameShell() {
           setPhase(savedPhase.success ? savedPhase.data : "welcome");
           setHouseSolved(Boolean(progress.houseSolved));
           setAirRestored(Boolean(progress.airRestored || progress.phase === "launch" || progress.mentor));
+          const savedMuted = Boolean(progress.muted);
+          setIsMuted(savedMuted);
+          void setMuted(savedMuted);
           const savedComposition = compositionSchema.safeParse(progress.composition);
           const savedMentor = mentorFeedbackSchema.safeParse(progress.mentor);
           const savedWater = waterProgressSchema.safeParse(progress.water);
@@ -60,6 +67,7 @@ export function GameShell() {
       const params = new URLSearchParams(window.location.search);
       const sharedChallenge = parseWaterChallengeId(params.get("challenge"));
       const sharedLanguage = params.get("lang");
+      if (params.get("guide") === "1") setGuideOpen(true);
       if (sharedLanguage === "en" || sharedLanguage === "es") setLanguage(sharedLanguage);
       if (sharedChallenge) {
         setWaterProgress((current) => createWaterProgress(sharedChallenge, current));
@@ -79,15 +87,43 @@ export function GameShell() {
       phase,
       houseSolved,
       airRestored,
+      muted,
       composition,
       mentor: mentor ?? undefined,
       water: waterProgress,
     };
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
-  }, [airRestored, composition, houseSolved, hydrated, language, mentor, phase, waterProgress]);
+  }, [airRestored, composition, houseSolved, hydrated, language, mentor, muted, phase, waterProgress]);
   useEffect(() => {
     document.documentElement.lang = language;
   }, [language]);
+  useEffect(() => {
+    if (!hydrated) return;
+    const frame = window.requestAnimationFrame(() => {
+      const heading = sceneHost.current?.querySelector<HTMLElement>("h1, h2");
+      if (!heading) return;
+      heading.tabIndex = -1;
+      heading.focus({ preventScroll: true });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [hydrated, phase]);
+  useEffect(() => {
+    const pauseAudio = () => {
+      stopPreview.current?.();
+      stopPreview.current = null;
+      void stopAll();
+      setPlayingVersion(null);
+    };
+    const handleVisibility = () => {
+      if (document.hidden) pauseAudio();
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+    window.addEventListener("blur", pauseAudio);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibility);
+      window.removeEventListener("blur", pauseAudio);
+    };
+  }, []);
   useEffect(() => () => {
     stopPreview.current?.();
     if (houseStatusTimer.current) window.clearTimeout(houseStatusTimer.current);
@@ -109,6 +145,37 @@ export function GameShell() {
     setPlayingVersion(version);
   }
   async function toggleMute() { const next = !muted; setIsMuted(next); await setMuted(next); }
+
+  function openFieldGuide() {
+    stopMusic();
+    setGuideOpen(true);
+  }
+
+  function closeFieldGuide() {
+    const url = new URL(window.location.href);
+    url.searchParams.delete("guide");
+    window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+    setGuideOpen(false);
+    window.requestAnimationFrame(() => helpButton.current?.focus());
+  }
+
+  function startFullJourney() {
+    stopMusic();
+    window.history.replaceState({}, "", window.location.pathname);
+    setInvitedToWater(false);
+    setGuideOpen(false);
+    setPhase(houseSolved ? "atlas" : "house");
+  }
+
+  function startQuickDemo() {
+    stopMusic();
+    window.history.replaceState({}, "", window.location.pathname);
+    setInvitedToWater(false);
+    setAirRestored(true);
+    setWaterProgress(createWaterProgress(dailyWaterChallengeId(), waterProgress));
+    setGuideOpen(false);
+    setPhase("water");
+  }
 
   async function selectHouseObject(item: keyof typeof notes) {
     if (houseStatus === "solved") return;
@@ -209,23 +276,39 @@ export function GameShell() {
       ? mockMentorFeedback(language, composition)
       : null
   );
+  const restoredCount = restoredWorldCount(airRestored, waterProgress.completedRuns);
 
   return (
-    <main className={`game phase-${phase}`}>
+    <main className={`game phase-${phase}`} aria-busy={!hydrated}>
       <div className="aurora" aria-hidden="true" />
       <header className="topbar">
-        <button className="brand" onClick={() => go("welcome")} aria-label="Resonance home"><span className="brand-mark">R</span><span>RESONANCE</span></button>
+        <button className="brand" onClick={() => go("welcome")} aria-label={t.homeLabel}><span className="brand-mark">R</span><span>RESONANCE</span></button>
+        {hydrated && <div className="world-progress" aria-label={`${restoredCount} / 4 ${t.worldsRestored}`}>
+          <span className="world-progress-label"><strong>{restoredCount}/4</strong> {t.worldsRestored}</span>
+          <span className="world-progress-dots" aria-hidden="true">
+            {[0, 1, 2, 3].map((index) => <i key={index} className={index < restoredCount ? `restored world-${index + 1}` : `world-${index + 1}`} />)}
+          </span>
+        </div>}
         <div className="top-actions">
-          <div className="language-switch" aria-label="Language">
-            {(["en", "es"] as const).map((lang) => <button key={lang} className={language === lang ? "active" : ""} onClick={() => changeLanguage(lang)}>{lang.toUpperCase()}</button>)}
+          <div className="language-switch" role="group" aria-label={t.languageLabel}>
+            {(["en", "es"] as const).map((lang) => <button key={lang} aria-pressed={language === lang} className={language === lang ? "active" : ""} onClick={() => changeLanguage(lang)}>{lang.toUpperCase()}</button>)}
           </div>
-          <button className="round-button" onClick={() => void toggleMute()} aria-label={muted ? t.soundOff : t.soundOn}>{muted ? "♩" : "♫"}</button>
+          <button ref={helpButton} className="round-button help-button" onClick={openFieldGuide} aria-label={t.help}>?</button>
+          <button className="round-button" onClick={() => void toggleMute()} aria-pressed={!muted} aria-label={muted ? t.soundOn : t.soundOff}>{muted ? "♩" : "♫"}</button>
         </div>
       </header>
 
+      <p className="sr-only" aria-live="polite">{hydrated ? phaseObjectives[language][phase] : t.loading}</p>
+      {!hydrated && <section className="boot-scene" role="status" aria-label={t.loading}>
+        <div className="boot-mark"><span>R</span><i /><i /><i /></div>
+        <strong>RESONANCE</strong>
+        <small>{t.loading}</small>
+      </section>}
+
+      {hydrated && <div ref={sceneHost} className="scene-host">
       {phase === "welcome" && <section className="scene welcome-scene">
         <div className="hero-copy"><span className="eyebrow">{t.dayOne}</span><h1><span>THE LIVING</span>SONG</h1><p>{t.tagline}</p>
-          <div className="hero-actions"><button className="primary-button" onClick={() => go(houseSolved ? "atlas" : "house")}>{houseSolved ? t.continue : t.enter} <span>→</span></button>{houseSolved && <button className="text-button" onClick={resetJourney}>{t.newJourney}</button>}</div>
+          <div className="hero-actions"><button className="primary-button" onClick={() => go(houseSolved ? "atlas" : "house")}>{houseSolved ? t.continue : t.enter} <span>→</span></button><button className="text-button" onClick={openFieldGuide}>{t.howToPlay}</button>{houseSolved && <button className="text-button subtle" onClick={resetJourney}>{t.newJourney}</button>}</div>
         </div>
         <div className="world-orb" aria-hidden="true"><div className="orb-ring ring-one"/><div className="orb-ring ring-two"/><div className="floating-island"><span className="island-tree">♧</span><span className="island-house">⌂</span></div><span className="note note-one">♪</span><span className="note note-two">♫</span><span className="note note-three">♩</span></div>
         <div className="element-rail"><span>01 AIR</span><span>02 WATER</span><span>03 FIRE</span><span>04 EARTH</span></div>
@@ -277,7 +360,16 @@ export function GameShell() {
       </section>}
 
       {phase === "water" && <WaterWorld language={language} progress={waterProgress} invited={invitedToWater} onProgress={setWaterProgress} onExit={exitWaterWorld} />}
+      </div>}
       <div className="grain" aria-hidden="true"/>
+      {guideOpen && <FieldGuide
+        language={language}
+        objective={phaseObjectives[language][phase]}
+        restoredWorlds={restoredCount}
+        onClose={closeFieldGuide}
+        onFullJourney={startFullJourney}
+        onQuickDemo={startQuickDemo}
+      />}
     </main>
   );
 }

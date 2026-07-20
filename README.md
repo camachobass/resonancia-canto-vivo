@@ -4,7 +4,9 @@ A bilingual musical adventure for OpenAI Build Week. Players restore living worl
 
 Una aventura musical bilingüe para OpenAI Build Week. Los jugadores restauran mundos vivos al escuchar, componer y convertir ideas musicales en cambios visibles.
 
-**Play the Day 3 prototype:** [resonancia-canto-vivo.vercel.app](https://resonancia-canto-vivo.vercel.app)
+**Play the Build Week release:** [resonancia-canto-vivo.vercel.app](https://resonancia-canto-vivo.vercel.app)
+
+Open the [?guide=1 judge route](https://resonancia-canto-vivo.vercel.app/?guide=1) for a guided three-minute journey or a zero-cost 90-second Water demo.
 
 ## Playable loop
 
@@ -26,7 +28,13 @@ Progress, the anonymous session UUID, and the latest mentor response are stored 
 
 ![Octavia introduces the Day 3 Water World](artifacts/day3-water-intro-desktop.png)
 
-The original house → atlas → composition → Air portal loop was browser-tested at desktop size and at 390×844. Day 2 added the live mentor and audible variation comparison. Day 3 expands that loop with a complete Water mission and account-free musical challenges.
+![The final Build Week Field Guide](artifacts/day4-field-guide-desktop.png)
+
+![Octavia after Water is restored](artifacts/day4-water-complete-desktop.png)
+
+The repository also includes a concise silent browser walkthrough at [`artifacts/resonance-day4-demo.webm`](artifacts/resonance-day4-demo.webm). Use [`docs/DEMO_VIDEO_SCRIPT.md`](docs/DEMO_VIDEO_SCRIPT.md) to record the narrated 90-second submission cut.
+
+The original house → atlas → composition → Air portal loop was browser-tested at desktop size and at 390×844. Day 2 added the live mentor and audible variation comparison. Day 3 expanded that loop with a complete Water mission and account-free musical challenges. Day 4 adds the bilingual Field Guide, judge route, accessibility and audio-lifecycle polish, installable manifest, social card, and submission assets.
 
 ## Run locally
 
@@ -70,6 +78,9 @@ npm run check
 - A deterministic Water challenge engine with four curated seeds and no additional AI cost
 - Six playable diatonic triads, major/minor ear training, order-sensitive harmony reconstruction, and persistent pearl scoring
 - Anonymous challenge URLs containing only a curated challenge ID and interface language
+- A native-dialog Field Guide with full-journey and zero-AI quick-demo routes
+- Keyboard scene focus, live objectives, reduced-motion support, safe-area spacing, and persisted mute state
+- Installable web-app metadata and a generated Open Graph preview
 
 ### Mentor API
 
@@ -81,6 +92,8 @@ npm run check
 The Day 2 evaluation set covers English and Spanish, all melodic contours, both tempo extremes, and one- to three-instrument arrangements. See [`docs/DAY_2_EVALS.md`](docs/DAY_2_EVALS.md).
 
 The Day 3 design, musical contract, privacy boundary, and completion gates are documented in [`docs/DAY_3_PLAN.md`](docs/DAY_3_PLAN.md).
+
+The final scope and release gates are in [`docs/DAY_4_RELEASE.md`](docs/DAY_4_RELEASE.md). Ready-to-paste entry copy and the recording plan are in [`docs/BUILD_WEEK_SUBMISSION.md`](docs/BUILD_WEEK_SUBMISSION.md) and [`docs/DEMO_VIDEO_SCRIPT.md`](docs/DEMO_VIDEO_SCRIPT.md).
 
 ## Built with Codex
 
